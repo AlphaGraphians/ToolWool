@@ -30,7 +30,8 @@ export function PdfMerger({ onClose }: { onClose: () => void }) {
         copiedPages.forEach((page) => mergedPdf.addPage(page));
       }
       const pdfBytes = await mergedPdf.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      // pdfBytes ko Uint8Array mein force karein taake TypeScript khush ho jaye
+const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
