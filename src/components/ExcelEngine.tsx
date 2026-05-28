@@ -1,16 +1,19 @@
 "use client";
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
-import { FileSpreadsheet, Download, Plus, Wand2, Trash2, Columns } from 'lucide-react';
+import { FileSpreadsheet, Download, Plus, Wand2, Trash2, Columns, X } from 'lucide-react';
 
-const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
-  const [data, setData] = useState<any[]>([]);
+interface ExcelEngineProps {
+  onClose: () => void;
+}
+
+const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
+  const [data, setData] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
-  const [fileName, setFileName] = useState("");
+  const [fileName, setFileName] = useState<string>("");
   const [selectedColumn, setSelectedColumn] = useState<string>("");
   const [timeFormat, setTimeFormat] = useState<string>("12");
 
-  // Load File: Raw values read karenge taake Excel ka hidden numeric timestamp bhi mil sakay
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -19,38 +22,27 @@ const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       const bstr = evt.target?.result;
-      // raw: true rakhne se Excel ke numbers aur actual strings dono un-formatted milti hain
-      const wb = XLSX.read(bstr, { type: 'binary', cellDates: false });
+      if (!bstr) return;
+      const wb = XLSX.read(bstr, { type: 'binary' });
       const wsname = wb.SheetNames[0];
       const ws = wb.Sheets[wsname];
       
-      const headersArray: string[] = XLSX.utils.sheet_to_json(ws, { header: 1 })[0] as string[];
+      const headersArray = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] || []) as string[];
+      const jsonObjects = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { raw: false });
       
-      // raw: false aur w/o cellDates se safe plain text dictionary milti hai
-      const jsonObjects: any[] = XLSX.utils.sheet_to_json(ws, { raw: false });
-      
-      // Hamein raw values bhi chahiye ho sakti hain agar text mein time na ho, isliye cell rows ko absolute check karenge
-      const rawJsonObjects: any[] = XLSX.utils.sheet_to_json(ws, { raw: true });
-
-      const parsedData = jsonObjects.map((obj: any, rowIndex: number) => {
-        return headersArray.map(header => {
-          // Object structure create karte hain taake formatted aur raw value dono pass hon
-          const formattedVal = obj[header] !== undefined ? obj[header] : "";
-          const rawVal = rawJsonObjects[rowIndex]?.[header] !== undefined ? rawJsonObjects[rowIndex][header] : "";
-          return { formatted: formattedVal, raw: rawVal };
-        });
+      const parsedData = jsonObjects.map((obj) => {
+        return headersArray.map(header => obj[header] !== undefined ? String(obj[header]) : "");
       });
 
       if (headersArray.length > 0) {
-        setHeaders(headersArray);
+        setHeaders(headersArray.map(h => h || ""));
         setData(parsedData);
-        setSelectedColumn(headersArray[0]);
+        setSelectedColumn(headersArray[0] || "");
       }
     };
     reader.readAsBinaryString(file);
   };
 
-  // Split and Matrix Shift Engine
   const handleSplitDateTime = () => {
     if (!selectedColumn || data.length === 0) return;
 
@@ -63,68 +55,35 @@ const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
 
     const newData = data.map((row) => {
       const newRow = [...row];
-      
       while (newRow.length < headers.length) {
-        newRow.push({ formatted: "", raw: "" });
+        newRow.push("");
       }
 
-      const cellObj = newRow[targetIdx];
-      const formattedStr = String(cellObj.formatted).trim();
-      const rawVal = cellObj.raw;
-      
-      let datePart = formattedStr;
+      const timestampVal = String(newRow[targetIdx]).trim();
+      let datePart = timestampVal;
       let timePart = "";
 
-      // APPROACH 1: Agar text string ke andar hi space aur time majood ho
-      const parts = formattedStr.split(/\s+/);
-      if (parts.length >= 2) {
-        datePart = parts[0];
-        timePart = parts[1];
-      } 
-      // APPROACH 2: Agar string fail ho jaye par background mein Excel Serial Number (Float) ho
-      else if (typeof rawVal === 'number' && rawVal > 0) {
-        // Excel serial number ka integer part Date hota hai aur decimal part Time hota hai
-        const serialDate = Math.floor(rawVal);
-        const serialTime = rawVal - serialDate;
+      if (timestampVal && timestampVal !== "undefined" && timestampVal !== "") {
+        const parts = timestampVal.split(/\s+/);
         
-        // Convert Excel Serial Time to Hours, Minutes, Seconds
-        const totalSeconds = Math.round(serialTime * 24 * 60 * 60);
-        const hours24 = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-
-        // Formatted Time output mapping
-        const minStr = minutes < 10 ? `0${minutes}` : minutes;
-        const secStr = seconds < 10 ? `0${seconds}` : seconds;
-
-        if (timeFormat === "12") {
-          const ampm = hours24 >= 12 ? 'PM' : 'AM';
-          let hours12 = hours24 % 12;
-          hours12 = hours12 ? hours12 : 12;
-          timePart = `${hours12}:${minStr}:${secStr} ${ampm}`;
-        } else {
-          const hrStr = hours24 < 10 ? `0${hours24}` : hours24;
-          timePart = `${hrStr}:${minStr}:${secStr}`;
-        }
-
-        // Agar Date string numeric ban gayi ho, toh usay safe static date shakal mein fallback karein
-        if (!isNaN(Number(datePart))) {
-          const jsDate = XLSX.SSF.parse_date_code(rawVal);
-          datePart = `${jsDate.m}/${jsDate.d}/${jsDate.y}`;
-        }
-      }
-      // APPROACH 3: Standard JS Date Object parsing fallback
-      else {
-        const parsedDate = new Date(formattedStr);
-        if (!isNaN(parsedDate.getTime())) {
-          datePart = parsedDate.toLocaleDateString();
-          timePart = parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        if (parts.length >= 2) {
+          datePart = parts[0];
+          timePart = parts[1];
+          
+          if (timeFormat === "12" && timePart.includes(":")) {
+            const timeSplit = timePart.split(":");
+            let hours = parseInt(timeSplit[0] || "0", 10);
+            const minutes = timeSplit[1] || "00";
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            timePart = `${hours}:${minutes} ${ampm}`;
+          }
         }
       }
 
-      // Safe deployment back to schema map object
-      newRow.splice(targetIdx + 1, 0, { formatted: timePart, raw: timePart });
-      newRow[targetIdx] = { formatted: datePart, raw: datePart };
+      newRow.splice(targetIdx + 1, 0, timePart);
+      newRow[targetIdx] = datePart;
       return newRow;
     });
 
@@ -139,10 +98,8 @@ const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
     setSelectedColumn("");
   };
 
-  // Export Matrix Map back to standard flat array configuration
   const exportToExcel = () => {
-    const flatData = data.map(row => row.map((cell: any) => cell.formatted));
-    const finalContent = [headers, ...flatData];
+    const finalContent = [headers, ...data];
     const ws = XLSX.utils.aoa_to_sheet(finalContent);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Processed_Data");
@@ -155,7 +112,6 @@ const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
       
       <div className="relative w-full max-w-7xl bg-white dark:bg-[#121212] rounded-2xl shadow-2xl h-[90vh] flex flex-col overflow-hidden border border-gray-200 dark:border-white/5">
         
-        {/* Top Header */}
         <div className="p-6 border-b border-gray-100 dark:border-white/5 flex justify-between items-center bg-white dark:bg-[#181818]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-600 rounded-lg">
@@ -167,14 +123,12 @@ const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-full transition-colors">
-            <XIcon className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
-        {/* Workspace Layout */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-[#FAFAFA] dark:bg-[#0A0A0A]">
           
-          {/* Side Configuration Panel */}
           <div className="w-full lg:w-80 border-r border-gray-200 dark:border-white/5 p-6 space-y-6 overflow-y-auto bg-white dark:bg-[#151515]">
             {data.length > 0 && (
               <div className="space-y-5">
@@ -238,7 +192,6 @@ const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
             )}
           </div>
 
-          {/* Table Spreadsheet Viewport */}
           <div className="flex-1 p-6 overflow-auto">
             {!data.length ? (
               <div className="h-full border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl flex flex-col items-center justify-center bg-white dark:bg-black/10 transition-all hover:border-green-600/30">
@@ -266,7 +219,6 @@ const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
                   </button>
                 </div>
                 
-                {/* Table Sheet View */}
                 <div className="flex-1 overflow-auto border border-gray-200 dark:border-white/5 rounded-xl shadow-inner bg-white dark:bg-black/20">
                   <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-[#181818] z-10 shadow-sm">
@@ -281,7 +233,7 @@ const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
                         <tr key={i} className="border-b border-gray-50 dark:border-white/5 hover:bg-gray-100/50 dark:hover:bg-white/5 transition-colors">
                           {headers.map((_, j) => (
                             <td key={j} className="p-3.5 text-xs text-gray-600 dark:text-gray-400 font-mono whitespace-nowrap">
-                              {row[j] !== undefined ? String(row[j].formatted) : ""}
+                              {row[j] !== undefined ? String(row[j]) : ""}
                             </td>
                           ))}
                         </tr>
@@ -297,9 +249,5 @@ const ExcelEngine = ({ onClose }: { onClose: () => void }) => {
     </div>
   );
 };
-
-const XIcon = (props: any) => (
-  <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-);
 
 export default ExcelEngine;
