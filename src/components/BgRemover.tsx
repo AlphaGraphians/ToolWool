@@ -16,8 +16,8 @@ const BgRemover = ({ onClose }: { onClose: () => void }) => {
     setLoading(true);
     try {
       // Sensitivity ko threshold ke tor par use kiya gaya hai
-      const blob = await removeBackground(file, {
-  model: 'isnet_fp16',
+     const blob = await removeBackground(file, {
+  model: 'isnet_fp16', 
 });
       const url = URL.createObjectURL(blob);
       setImage(url);
