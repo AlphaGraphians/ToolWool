@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Moon, Sun, Command, X,
   Type, ImageIcon, Code2, FileText, Ruler, Shuffle,
-  ArrowRight, Eraser, FileSpreadsheet
+  ArrowRight, Eraser, FileSpreadsheet, Music
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { WordCounter } from '@/components/WordCounter';
@@ -15,22 +15,25 @@ import { RandomGenerator } from '@/components/RandomGenerator';
 import { PdfMerger } from '@/components/PdfMerger';
 import BgRemover from '@/components/BgRemover';
 import ExcelEngine from '@/components/ExcelEngine';
+import BeatSync from '@/components/BeatSync';
 
 /* ─── Tool Data ──────────────────────────────────────────────── */
 const TOOLS = [
-  { id: 'bg-remover',    name: 'AI BG Remover',     desc: 'Remove backgrounds from images instantly using AI.',            cat: 'Image', icon: Eraser },
+  { id: 'bg-remover',    name: 'AI BG Remover',     desc: 'Remove backgrounds from images instantly using AI.',           cat: 'Image', icon: Eraser },
+  { id: 'beat-sync',     name: 'BeatSync Engine',   desc: 'Calculate exact video cut-points based on music BPM & FPS.',   cat: 'Video', icon: Music },
   { id: 'word-counter',  name: 'Word Counter',      desc: 'Count words, characters, sentences and paragraphs instantly.',   cat: 'Text',  icon: Type },
-  { id: 'image-resize',  name: 'Image Resizer',     desc: 'Resize images to exact dimensions while preserving quality.',     cat: 'Image', icon: ImageIcon },
-  { id: 'json-format',   name: 'JSON Formatter',    desc: 'Beautify, validate, and minify JSON with syntax highlighting.',     cat: 'Code',  icon: Code2 },
+  { id: 'image-resize',  name: 'Image Resizer',     desc: 'Resize images to exact dimensions while preserving quality.',      cat: 'Image', icon: ImageIcon },
+  { id: 'json-format',   name: 'JSON Formatter',    desc: 'Beautify, validate, and minify JSON with syntax highlighting.',      cat: 'Code',  icon: Code2 },
   { id: 'pdf-merge',     name: 'PDF Merger',        desc: 'Combine multiple PDF files into a single document seamlessly.',  cat: 'PDF',   icon: FileText },
-  { id: 'unit-convert',  name: 'Unit Converter',    desc: 'Convert between 100+ units of length, weight, and more.',        cat: 'Unit',  icon: Ruler },
-  { id: 'random-gen',    name: 'Random Generator',  desc: 'Generate passwords, UUIDs, and lorem ipsum on demand.',           cat: 'Others', icon: Shuffle },
-  { id: 'excel-engine',  name: 'Excel Data Engine', desc: 'Analyze, clean and process spreadsheet data with AI assistance.',cat: 'Code',  icon: FileSpreadsheet },
+  { id: 'unit-convert',  name: 'Unit Converter',    desc: 'Convert between 100+ units of length, weight, and more.',         cat: 'Unit',  icon: Ruler },
+  { id: 'random-gen',    name: 'Random Generator',  desc: 'Generate passwords, UUIDs, and lorem ipsum on demand.',            cat: 'Others', icon: Shuffle },
+  { id: 'excel-engine',  name: 'Excel Data Engine', desc: 'Analyze, clean and process spreadsheet data with efficiency.', cat: 'Code',  icon: FileSpreadsheet },
 ];
 
 const CAT_COLORS: Record<string, string> = {
   Text:   '#2d5a27',
   Image:  '#4a8a42',
+  Video:  '#eab308', // Yellow for Video/BeatSync
   Code:   '#c9a84c',
   PDF:    '#8a6a2a',
   Unit:   '#5a7e54',
@@ -211,6 +214,7 @@ export default function Home() {
 
       {/* Tool Rendering Logic */}
       {activeTool === 'bg-remover' && <BgRemover onClose={() => setActiveTool(null)} />}
+      {activeTool === 'beat-sync' && <BeatSync onClose={() => setActiveTool(null)} />}
       {activeTool === 'word-counter' && <WordCounter onClose={() => setActiveTool(null)} />}
       {activeTool === 'image-resize' && <ImageResizer onClose={() => setActiveTool(null)} />}
       {activeTool === 'json-format' && <JsonFormatter onClose={() => setActiveTool(null)} />}
