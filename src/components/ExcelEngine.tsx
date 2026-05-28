@@ -1,19 +1,20 @@
 "use client";
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
-import { FileSpreadsheet, Download, Plus, Wand2, Trash2, Columns, X } from 'lucide-react';
+import { FileSpreadsheet, Download, Plus, Wand2, Trash2, Columns, X, HelpCircle } from 'lucide-react';
 
 interface ExcelEngineProps {
   onClose: () => void;
 }
 
 const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
-  const [data, setData] = useState<string[][]>([]);
+  const [data, setData] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [selectedColumn, setSelectedColumn] = useState<string>("");
   const [timeFormat, setTimeFormat] = useState<string>("12");
 
+  // Load File: Dual data extraction layout mapping
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -23,15 +24,27 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
     reader.onload = (evt) => {
       const bstr = evt.target?.result;
       if (!bstr) return;
-      const wb = XLSX.read(bstr, { type: 'binary' });
+      
+      // cellDates: false taake hum raw values aur numeric float indices dono read kar sakein
+      const wb = XLSX.read(bstr, { type: 'binary', cellDates: false });
       const wsname = wb.SheetNames[0];
       const ws = wb.Sheets[wsname];
       
       const headersArray = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] || []) as string[];
-      const jsonObjects = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { raw: false });
       
-      const parsedData = jsonObjects.map((obj) => {
-        return headersArray.map(header => obj[header] !== undefined ? String(obj[header]) : "");
+      // 1. Formatted output strings uthao
+      const jsonObjects = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { raw: false });
+      // 2. Pure numerical back-end float records uthao (Epoch values mapping)
+      const rawJsonObjects = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { raw: true });
+
+      const parsedData = jsonObjects.map((obj, rowIndex) => {
+        return headersArray.map(header => {
+          const formattedVal = obj[header] !== undefined ? String(obj[header]).trim() : "";
+          const rawVal = rawJsonObjects[rowIndex]?.[header] !== undefined ? rawJsonObjects[rowIndex][header] : "";
+          
+          // Object bundle create karein taake transformation block dono values ko trace kar sakay
+          return { formatted: formattedVal, raw: rawVal };
+        });
       });
 
       if (headersArray.length > 0) {
@@ -43,6 +56,7 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
     reader.readAsBinaryString(file);
   };
 
+  // Advanced Multi-Layer Date Time Split Engine
   const handleSplitDateTime = () => {
     if (!selectedColumn || data.length === 0) return;
 
@@ -56,34 +70,62 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
     const newData = data.map((row) => {
       const newRow = [...row];
       while (newRow.length < headers.length) {
-        newRow.push("");
+        newRow.push({ formatted: "", raw: "" });
       }
 
-      const timestampVal = String(newRow[targetIdx]).trim();
-      let datePart = timestampVal;
+      const cellObj = newRow[targetIdx];
+      const formattedStr = cellObj.formatted;
+      const rawVal = cellObj.raw;
+      
+      let datePart = formattedStr;
       let timePart = "";
 
-      if (timestampVal && timestampVal !== "undefined" && timestampVal !== "") {
-        const parts = timestampVal.split(/\s+/);
+      // ─── LAYER 1: DIRECT STRING TO STRING TEXT SPLITTING ───
+      const spaceParts = formattedStr.split(/[\sT]+/);
+      if (spaceParts.length >= 2 && spaceParts[1].includes(":")) {
+        datePart = spaceParts[0] || "";
+        timePart = spaceParts[1] || "";
+      } 
+      // ─── LAYER 2: MATHEMATICAL FLOAT FALLBACK (Excel Serial Number System) ───
+      else if (typeof rawVal === 'number' && rawVal > 0) {
+        const serialDate = Math.floor(rawVal);
+        const serialTime = rawVal - serialDate;
         
-        if (parts.length >= 2) {
-          datePart = parts[0];
-          timePart = parts[1];
-          
-          if (timeFormat === "12" && timePart.includes(":")) {
-            const timeSplit = timePart.split(":");
-            let hours = parseInt(timeSplit[0] || "0", 10);
-            const minutes = timeSplit[1] || "00";
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12;
-            hours = hours ? hours : 12;
-            timePart = `${hours}:${minutes} ${ampm}`;
+        // Excel floating mechanism check: Decimal point hi Time hota hai
+        if (serialTime > 0) {
+          const totalSeconds = Math.round(serialTime * 24 * 60 * 60);
+          const hours24 = Math.floor(totalSeconds / 3600);
+          const minutes = Math.floor((totalSeconds % 3600) / 60);
+          const seconds = totalSeconds % 60;
+
+          const minStr = minutes < 10 ? `0${minutes}` : minutes;
+          const secStr = seconds < 10 ? `0${seconds}` : seconds;
+
+          if (timeFormat === "12") {
+            const ampm = hours24 >= 12 ? 'PM' : 'AM';
+            let hours12 = hours24 % 12;
+            hours12 = hours12 ? hours12 : 12;
+            timePart = `${hours12}:${minStr}:${secStr} ${ampm}`;
+          } else {
+            const hrStr = hours24 < 10 ? `0${hours24}` : hours24;
+            timePart = `${hrStr}:${minStr}:${secStr}`;
+          }
+        }
+
+        // Agar formatted values numeric format code ho gaye hon, toh asli date recover karein
+        if (!isNaN(Number(datePart)) || datePart.includes(":")) {
+          try {
+            const jsDate = XLSX.SSF.parse_date_code(rawVal);
+            datePart = `${jsDate.m}/${jsDate.d}/${jsDate.y}`;
+          } catch (e) {
+            // No operation fallback
           }
         }
       }
 
-      newRow.splice(targetIdx + 1, 0, timePart);
-      newRow[targetIdx] = datePart;
+      // Safe state matrix layout updates
+      newRow.splice(targetIdx + 1, 0, { formatted: timePart, raw: timePart });
+      newRow[targetIdx] = { formatted: datePart, raw: datePart };
       return newRow;
     });
 
@@ -99,7 +141,9 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
   };
 
   const exportToExcel = () => {
-    const finalContent = [headers, ...data];
+    // Array map format flat structural serialization
+    const flatData = data.map(row => row.map((cell: any) => cell.formatted));
+    const finalContent = [headers, ...flatData];
     const ws = XLSX.utils.aoa_to_sheet(finalContent);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Processed_Data");
@@ -112,6 +156,7 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
       
       <div className="relative w-full max-w-7xl bg-white dark:bg-[#121212] rounded-2xl shadow-2xl h-[90vh] flex flex-col overflow-hidden border border-gray-200 dark:border-white/5">
         
+        {/* Header Control Panels */}
         <div className="p-6 border-b border-gray-100 dark:border-white/5 flex justify-between items-center bg-white dark:bg-[#181818]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-600 rounded-lg">
@@ -127,71 +172,97 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
           </button>
         </div>
 
+        {/* Dashboard Frame Workspace */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-[#FAFAFA] dark:bg-[#0A0A0A]">
           
-          <div className="w-full lg:w-80 border-r border-gray-200 dark:border-white/5 p-6 space-y-6 overflow-y-auto bg-white dark:bg-[#151515]">
-            {data.length > 0 && (
-              <div className="space-y-5">
-                <label className="text-xs font-extrabold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                  <Columns className="w-3 h-3" /> Date-Time Splitter
-                </label>
-                
-                <div className="space-y-2">
-                  <span className="text-xs font-semibold text-gray-500">Select Target Column</span>
-                  <select 
-                    value={selectedColumn}
-                    onChange={(e) => setSelectedColumn(e.target.value)}
-                    className="w-full p-3 bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl text-xs font-bold outline-none text-gray-700 dark:text-gray-300"
-                  >
-                    {headers.map((header, idx) => (
-                      <option key={idx} value={header}>{header || `Column ${idx + 1}`}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <span className="text-xs font-semibold text-gray-500">Time Format Output</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      onClick={() => setTimeFormat("12")}
-                      className={`py-2 text-xs font-bold rounded-lg border transition-all ${timeFormat === "12" ? 'bg-green-600 text-white border-green-600 shadow-sm' : 'bg-transparent text-gray-400 border-gray-200 dark:border-white/5'}`}
+          {/* Settings Side Panel */}
+          <div className="w-full lg:w-80 border-r border-gray-200 dark:border-white/5 p-6 flex flex-col justify-between overflow-y-auto bg-white dark:bg-[#151515]">
+            <div className="space-y-6">
+              {data.length > 0 && (
+                <div className="space-y-5">
+                  <label className="text-xs font-extrabold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                    <Columns className="w-3 h-3" /> Date-Time Splitter
+                  </label>
+                  
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-gray-500">Select Target Column</span>
+                    <select 
+                      value={selectedColumn}
+                      onChange={(e) => setSelectedColumn(e.target.value)}
+                      className="w-full p-3 bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl text-xs font-bold outline-none text-gray-700 dark:text-gray-300"
                     >
-                      12 Hour (AM/PM)
-                    </button>
-                    <button 
-                      onClick={() => setTimeFormat("24")}
-                      className={`py-2 text-xs font-bold rounded-lg border transition-all ${timeFormat === "24" ? 'bg-green-600 text-white border-green-600 shadow-sm' : 'bg-transparent text-gray-400 border-gray-200 dark:border-white/5'}`}
-                    >
-                      24 Hour (Military)
-                    </button>
+                      {headers.map((header, idx) => (
+                        <option key={idx} value={header}>{header || `Column ${idx + 1}`}</option>
+                      ))}
+                    </select>
                   </div>
-                </div>
 
-                <button 
-                  onClick={handleSplitDateTime}
-                  className="w-full py-3 mt-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md text-xs"
-                >
-                  <Wand2 className="w-4 h-4" /> Split & Shift Columns
-                </button>
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-gray-500">Time Format Output</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button 
+                        onClick={() => setTimeFormat("12")}
+                        className={`py-2 text-xs font-bold rounded-lg border transition-all ${timeFormat === "12" ? 'bg-green-600 text-white border-green-600 shadow-sm' : 'bg-transparent text-gray-400 border-gray-200 dark:border-white/5'}`}
+                      >
+                        12 Hour (AM/PM)
+                      </button>
+                      <button 
+                        onClick={() => setTimeFormat("24")}
+                        className={`py-2 text-xs font-bold rounded-lg border transition-all ${timeFormat === "24" ? 'bg-green-600 text-white border-green-600 shadow-sm' : 'bg-transparent text-gray-400 border-gray-200 dark:border-white/5'}`}
+                      >
+                        24 Hour (Military)
+                      </button>
+                    </div>
+                  </div>
 
-                <div className="pt-4 border-t border-gray-100 dark:border-white/5">
                   <button 
-                    onClick={handleReset}
-                    className="w-full py-2.5 border border-red-200 dark:border-red-900/20 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-xs"
+                    onClick={handleSplitDateTime}
+                    className="w-full py-3 mt-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md text-xs"
                   >
-                    <Trash2 className="w-4 h-4" /> Clear Current Dataset
+                    <Wand2 className="w-4 h-4" /> Split & Shift Columns
                   </button>
                 </div>
+              )}
+
+              {/* Documentation Guide Text block */}
+              <div className="pt-5 border-t border-gray-100 dark:border-white/5 space-y-3 bg-gray-50/50 dark:bg-black/20 p-4 rounded-xl">
+                <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider flex items-center gap-2">
+                  <HelpCircle className="w-3.5 h-3.5 text-green-600" /> How to use this tool
+                </h4>
+                <ul className="space-y-2.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 leading-relaxed">
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 font-bold">1.</span>
+                    <span><strong>Upload:</strong> Click the main dropzone to load a spreadsheet file (<code className="font-mono bg-gray-100 dark:bg-white/5 px-1 rounded">.csv</code>, <code className="font-mono bg-gray-100 dark:bg-white/5 px-1 rounded">.xlsx</code>).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 font-bold">2.</span>
+                    <span><strong>Select Target:</strong> Choose the column containing combined date-time timestamps from the dropdown menu.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 font-bold">3.</span>
+                    <span><strong>Choose Format:</strong> Toggle between standard 12-Hour (AM/PM) format or 24-Hour continuous format.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 font-bold">4.</span>
+                    <span><strong>Process:</strong> Click "Split & Shift Columns". The tool inserts a fresh time column dynamically without overwriting adjacent values.</span>
+                  </li>
+                </ul>
               </div>
-            )}
-            
-            {!data.length && (
-              <div className="h-full flex items-center justify-center text-center text-gray-400 text-xs italic">
-                Upload an Excel/CSV file to unlock configurations.
+            </div>
+
+            {data.length > 0 && (
+              <div className="pt-4">
+                <button 
+                  onClick={handleReset}
+                  className="w-full py-2.5 border border-red-200 dark:border-red-900/20 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-xs"
+                >
+                  <Trash2 className="w-4 h-4" /> Clear Current Dataset
+                </button>
               </div>
             )}
           </div>
 
+          {/* Viewport Spreadsheet Grid Grid Map View */}
           <div className="flex-1 p-6 overflow-auto">
             {!data.length ? (
               <div className="h-full border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl flex flex-col items-center justify-center bg-white dark:bg-black/10 transition-all hover:border-green-600/30">
@@ -233,7 +304,7 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
                         <tr key={i} className="border-b border-gray-50 dark:border-white/5 hover:bg-gray-100/50 dark:hover:bg-white/5 transition-colors">
                           {headers.map((_, j) => (
                             <td key={j} className="p-3.5 text-xs text-gray-600 dark:text-gray-400 font-mono whitespace-nowrap">
-                              {row[j] !== undefined ? String(row[j]) : ""}
+                              {row[j] !== undefined ? String(row[j].formatted) : ""}
                             </td>
                           ))}
                         </tr>
