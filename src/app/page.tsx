@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Moon, Sun, Command, X,
   Type, ImageIcon, Code2, FileText, Ruler, Shuffle,
-  ArrowRight, Eraser, FileSpreadsheet, Music, Sparkles // Added Sparkles
+  ArrowRight, Eraser, FileSpreadsheet, Music, Sparkles, FileSearch
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { WordCounter } from '@/components/WordCounter';
@@ -17,20 +17,21 @@ import BgRemover from '@/components/BgRemover';
 import ExcelEngine from '@/components/ExcelEngine';
 import BeatSync from '@/components/BeatSync';
 import PromptGenerator from '@/components/PromptGenerator';
+import DocComparator from '@/components/DocComparator';
 
 /* ─── Tool Data ──────────────────────────────────────────────── */
 const TOOLS = [
   { id: 'bg-remover',    name: 'AI BG Remover',     desc: 'Remove backgrounds from images instantly using AI.',            cat: 'Image', icon: Eraser },
-  { id: 'beat-sync',     name: 'BeatSync Engine',   desc: 'Calculate exact video cut-points based on music BPM & FPS.',   cat: 'Video', icon: Music },
+  { id: 'beat-sync',     name: 'BeatSync Engine',    desc: 'Calculate exact video cut-points based on music BPM & FPS.',    cat: 'Video', icon: Music },
   { id: 'word-counter',  name: 'Word Counter',      desc: 'Count words, characters, sentences and paragraphs instantly.',   cat: 'Text',  icon: Type },
-  { id: 'image-resize',  name: 'Image Resizer',     desc: 'Resize images to exact dimensions while preserving quality.',      cat: 'Image', icon: ImageIcon },
+  { id: 'image-resize',  name: 'Image Resizer',     desc: 'Resize images to exact dimensions while preserving quality.',    cat: 'Image', icon: ImageIcon },
   { id: 'json-format',   name: 'JSON Formatter',    desc: 'Beautify, validate, and minify JSON with syntax highlighting.',      cat: 'Code',  icon: Code2 },
   { id: 'pdf-merge',     name: 'PDF Merger',        desc: 'Combine multiple PDF files into a single document seamlessly.',  cat: 'PDF',   icon: FileText },
-  { id: 'unit-convert',  name: 'Unit Converter',    desc: 'Convert between 100+ units of length, weight, and more.',         cat: 'Unit',  icon: Ruler },
-  { id: 'random-gen',    name: 'Random Generator',  desc: 'Generate passwords, UUIDs, and lorem ipsum on demand.',             cat: 'Others', icon: Shuffle },
+  { id: 'unit-convert',  name: 'Unit Converter',    desc: 'Convert between 100+ units of length, weight, and more.',          cat: 'Unit',  icon: Ruler },
+  { id: 'random-gen',    name: 'Random Generator',  desc: 'Generate passwords, UUIDs, and lorem ipsum on demand.',               cat: 'Others', icon: Shuffle },
   { id: 'excel-engine',  name: 'Excel Data Engine', desc: 'Analyze, clean and process spreadsheet data with efficiency.', cat: 'Code',  icon: FileSpreadsheet },
-  // Prompt Matrix added here
-  { id: 'prompt-matrix', name: 'Prompt Matrix',     desc: 'Neural hierarchical prompt engineering suite for NPU models.', cat: 'Code',  icon: Sparkles },
+  { id: 'prompt-matrix', name: 'Prompt Matrix',     desc: 'Neural hierarchical prompt engineering suite for NPU models.', cat: 'Image', icon: Sparkles },
+  { id: 'doc-integrity', name: 'Text Integrity Engine', desc: 'Perform forensic document comparison and text analysis.', cat: 'Text', icon: FileSearch },
 ];
 
 const CAT_COLORS: Record<string, string> = {
@@ -226,6 +227,7 @@ export default function Home() {
       {activeTool === 'pdf-merge' && <PdfMerger onClose={() => setActiveTool(null)} />}
       {activeTool === 'excel-engine' && <ExcelEngine onClose={() => setActiveTool(null)} />}
       {activeTool === 'prompt-matrix' && <PromptGenerator onClose={() => setActiveTool(null)} />}
+      {activeTool === 'doc-integrity' && <DocComparator onClose={() => setActiveTool(null)} />}
     </div>
   );
 }
