@@ -8,13 +8,13 @@ interface ExcelEngineProps {
 }
 
 const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [selectedColumn, setSelectedColumn] = useState<string>("");
   const [timeFormat, setTimeFormat] = useState<string>("12");
 
-  // Load File: Dual data extraction layout mapping
+  // Dual parsing mechanism forcing absolute strings grid mapping
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -25,25 +25,27 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
       const bstr = evt.target?.result;
       if (!bstr) return;
       
-      // cellDates: false taake hum raw values aur numeric float indices dono read kar sakein
       const wb = XLSX.read(bstr, { type: 'binary', cellDates: false });
       const wsname = wb.SheetNames[0];
       const ws = wb.Sheets[wsname];
       
       const headersArray = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] || []) as string[];
       
-      // 1. Formatted output strings uthao
+      // Plain textual strings output reading
       const jsonObjects = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { raw: false });
-      // 2. Pure numerical back-end float records uthao (Epoch values mapping)
+      // Numerical raw float inputs tracking
       const rawJsonObjects = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { raw: true });
 
       const parsedData = jsonObjects.map((obj, rowIndex) => {
         return headersArray.map(header => {
           const formattedVal = obj[header] !== undefined ? String(obj[header]).trim() : "";
-          const rawVal = rawJsonObjects[rowIndex]?.[header] !== undefined ? rawJsonObjects[rowIndex][header] : "";
+          const rawVal = rawJsonObjects[rowIndex]?.[header] !== undefined ? String(rawJsonObjects[rowIndex][header]).trim() : "";
           
-          // Object bundle create karein taake transformation block dono values ko trace kar sakay
-          return { formatted: formattedVal, raw: rawVal };
+          // Agar dono mismatch hon aur formatted mein time missing ho, toh raw save rakhein
+          if (formattedVal !== "" && !formattedVal.includes(" ") && rawVal.includes(".")) {
+            return `${formattedVal}||${rawVal}`; // Delimiter based storage encapsulation
+          }
+          return formattedVal;
         });
       });
 
@@ -56,7 +58,7 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
     reader.readAsBinaryString(file);
   };
 
-  // Advanced Multi-Layer Date Time Split Engine
+  // Safe Index Shifting & Split Engine
   const handleSplitDateTime = () => {
     if (!selectedColumn || data.length === 0) return;
 
@@ -70,28 +72,35 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
     const newData = data.map((row) => {
       const newRow = [...row];
       while (newRow.length < headers.length) {
-        newRow.push({ formatted: "", raw: "" });
+        newRow.push("");
       }
 
-      const cellObj = newRow[targetIdx];
-      const formattedStr = cellObj.formatted;
-      const rawVal = cellObj.raw;
-      
+      const rawCellStr = newRow[targetIdx] || "";
+      let formattedStr = rawCellStr;
+      let embeddedRaw = "";
+
+      // Extraction based on dynamic delimiter check
+      if (rawCellStr.includes("||")) {
+        const splitParts = rawCellStr.split("||");
+        formattedStr = splitParts[0] || "";
+        embeddedRaw = splitParts[1] || "";
+      }
+
       let datePart = formattedStr;
       let timePart = "";
 
-      // ─── LAYER 1: DIRECT STRING TO STRING TEXT SPLITTING ───
+      // LAYER 1: Text splitting on space validation
       const spaceParts = formattedStr.split(/[\sT]+/);
       if (spaceParts.length >= 2 && spaceParts[1].includes(":")) {
         datePart = spaceParts[0] || "";
         timePart = spaceParts[1] || "";
       } 
-      // ─── LAYER 2: MATHEMATICAL FLOAT FALLBACK (Excel Serial Number System) ───
-      else if (typeof rawVal === 'number' && rawVal > 0) {
-        const serialDate = Math.floor(rawVal);
-        const serialTime = rawVal - serialDate;
-        
-        // Excel floating mechanism check: Decimal point hi Time hota hai
+      // LAYER 2: Mathematical Serial Number extraction
+      else if (embeddedRaw !== "" && !isNaN(Number(embeddedRaw))) {
+        const rawNum = Number(embeddedRaw);
+        const serialDate = Math.floor(rawNum);
+        const serialTime = rawNum - serialDate;
+
         if (serialTime > 0) {
           const totalSeconds = Math.round(serialTime * 24 * 60 * 60);
           const hours24 = Math.floor(totalSeconds / 3600);
@@ -112,20 +121,17 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
           }
         }
 
-        // Agar formatted values numeric format code ho gaye hon, toh asli date recover karein
-        if (!isNaN(Number(datePart)) || datePart.includes(":")) {
+        // Recover corrupted date strings safely
+        if (!isNaN(Number(datePart))) {
           try {
-            const jsDate = XLSX.SSF.parse_date_code(rawVal);
+            const jsDate = XLSX.SSF.parse_date_code(rawNum);
             datePart = `${jsDate.m}/${jsDate.d}/${jsDate.y}`;
-          } catch (e) {
-            // No operation fallback
-          }
+          } catch (e) {}
         }
       }
 
-      // Safe state matrix layout updates
-      newRow.splice(targetIdx + 1, 0, { formatted: timePart, raw: timePart });
-      newRow[targetIdx] = { formatted: datePart, raw: datePart };
+      newRow.splice(targetIdx + 1, 0, timePart);
+      newRow[targetIdx] = datePart;
       return newRow;
     });
 
@@ -141,9 +147,8 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
   };
 
   const exportToExcel = () => {
-    // Array map format flat structural serialization
-    const flatData = data.map(row => row.map((cell: any) => cell.formatted));
-    const finalContent = [headers, ...flatData];
+    // Pure flat strings array generation for spreadsheet alignment
+    const finalContent = [headers, ...data];
     const ws = XLSX.utils.aoa_to_sheet(finalContent);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Processed_Data");
@@ -302,11 +307,16 @@ const ExcelEngine: React.FC<ExcelEngineProps> = ({ onClose }) => {
                     <tbody>
                       {data.map((row, i) => (
                         <tr key={i} className="border-b border-gray-50 dark:border-white/5 hover:bg-gray-100/50 dark:hover:bg-white/5 transition-colors">
-                          {headers.map((_, j) => (
-                            <td key={j} className="p-3.5 text-xs text-gray-600 dark:text-gray-400 font-mono whitespace-nowrap">
-                              {row[j] !== undefined ? String(row[j].formatted) : ""}
-                            </td>
-                          ))}
+                          {headers.map((_, j) => {
+                            const rawCellStr = row[j] || "";
+                            // Visual validation clean rendering split
+                            const displayStr = rawCellStr.includes("||") ? rawCellStr.split("||")[0] : rawCellStr;
+                            return (
+                              <td key={j} className="p-3.5 text-xs text-gray-600 dark:text-gray-400 font-mono whitespace-nowrap">
+                                {displayStr}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>
