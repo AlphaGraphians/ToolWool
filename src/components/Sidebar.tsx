@@ -1,14 +1,16 @@
 'use client';
 
 import React from 'react';
-import {
-  Type, ImageIcon, Code2, FileText, Ruler, MoreHorizontal,
-  Layers, ChevronRight, Sparkles
+import { 
+  Type, ImageIcon, Code2, FileText, Ruler, MoreHorizontal, 
+  Layers, ChevronRight, Sparkles, Music, Video // Music aur Video dono imports yahan hain
 } from 'lucide-react';
 
 const CATEGORIES = [
   { key: 'Text',   label: 'Text',   icon: Type,           color: '#2d5a27' },
   { key: 'Image',  label: 'Image',  icon: ImageIcon,      color: '#4a8a42' },
+  { key: 'Audio',  label: 'Audio',  icon: Music,          color: '#eab308' }, // Audio category
+  { key: 'Video',  label: 'Video',  icon: Video,          color: '#d97706' }, // Video category
   { key: 'Code',   label: 'Code',   icon: Code2,          color: '#c9a84c' },
   { key: 'PDF',    label: 'PDF',    icon: FileText,       color: '#8a6a2a' },
   { key: 'Unit',   label: 'Unit',   icon: Ruler,          color: '#5a7e54' },
@@ -42,7 +44,6 @@ export function Sidebar({ active, onSelect }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
-        {/* All */}
         <button
           onClick={() => onSelect(null)}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200"
