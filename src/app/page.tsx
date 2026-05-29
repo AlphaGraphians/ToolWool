@@ -18,6 +18,13 @@ import ExcelEngine from '@/components/ExcelEngine';
 import BeatSync from '@/components/BeatSync';
 import PromptGenerator from '@/components/PromptGenerator';
 import DocComparator from '@/components/DocComparator';
+import dynamic from 'next/dynamic';
+
+const AudioTranscriber = dynamic(
+  () => import('@/components/AudioTranscriber'),
+  { ssr: false } // یہ سرور سائیڈ پر لوڈنگ کو روکے گا اور ایرر ختم کر دے گا
+);
+
 
 /* ─── Tool Data ──────────────────────────────────────────────── */
 const TOOLS = [
@@ -32,6 +39,7 @@ const TOOLS = [
   { id: 'excel-engine',  name: 'Excel Data Engine', desc: 'Analyze, clean and process spreadsheet data with efficiency.', cat: 'Code',  icon: FileSpreadsheet },
   { id: 'prompt-matrix', name: 'Prompt Matrix',     desc: 'Neural hierarchical prompt engineering suite for NPU models.', cat: 'Image', icon: Sparkles },
   { id: 'doc-integrity', name: 'Text Integrity Engine', desc: 'Perform forensic document comparison and text analysis.', cat: 'Text', icon: FileSearch },
+  { id: 'audio-transcriber', name: 'Audio to Text', desc: 'Transcribe any audio file into clean text 100% locally in your browser.', cat: 'Video', icon: Music },
 ];
 
 const CAT_COLORS: Record<string, string> = {
@@ -228,6 +236,7 @@ export default function Home() {
       {activeTool === 'excel-engine' && <ExcelEngine onClose={() => setActiveTool(null)} />}
       {activeTool === 'prompt-matrix' && <PromptGenerator onClose={() => setActiveTool(null)} />}
       {activeTool === 'doc-integrity' && <DocComparator onClose={() => setActiveTool(null)} />}
+      {activeTool === 'audio-transcriber' && <AudioTranscriber onClose={() => setActiveTool(null)} />}
     </div>
   );
 }
