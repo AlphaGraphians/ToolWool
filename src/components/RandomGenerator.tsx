@@ -1,19 +1,21 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { X, Shuffle, Copy, RefreshCw } from 'lucide-react';
-
+import { useLanguage } from '@/context/LanguageContext';
 export function RandomGenerator({ onClose }: { onClose: () => void }) {
+  const { t } = useLanguage();
   const [password, setPassword] = useState('');
   const [uuid, setUuid] = useState('');
   const [hexColor, setHexColor] = useState('#C9A84C');
-
+  /* Labels not in core t — derived from language signal (t.catCode) */
+  const passwordLabel = t.catCode === 'Code' ? 'Secure Password' : t.catCode === 'کوڈ' ? 'محفوظ پاس ورڈ' : t.catCode === 'كود' ? 'كلمة مرور آمنة' : t.catCode === '代码' ? '安全密码' : t.catCode === 'Code' && t.catImage === 'Image' ? 'Mot de passe sécurisé' : t.catCode === 'Code' && t.catImage === 'Bild' ? 'Sicheres Passwort' : t.catCode === 'Código' && t.catImage === 'Imagen' ? 'Contraseña segura' : t.catCode === 'कोड' ? 'सुरक्षित पासवर्ड' : t.catCode === 'Código' && t.catImage === 'Imagem' ? 'Senha segura' : t.catCode === 'Код' ? 'Безопасный пароль' : t.catCode === 'コード' ? '安全なパスワード' : t.catCode === '코드' ? '보안 비밀번호' : 'Secure Password';
+  const colorLabel = t.catCode === 'Code' ? 'Random Color' : t.catCode === 'کوڈ' ? 'رینڈم رنگ' : t.catCode === 'كود' ? 'لون عشوائي' : t.catCode === '代码' ? '随机颜色' : t.catCode === 'Code' && t.catImage === 'Image' ? 'Couleur aléatoire' : t.catCode === 'Code' && t.catImage === 'Bild' ? 'Zufällige Farbe' : t.catCode === 'Código' && t.catImage === 'Imagen' ? 'Color aleatorio' : t.catCode === 'कोड' ? 'यादृच्छिक रंग' : t.catCode === 'Código' && t.catImage === 'Imagem' ? 'Cor aleatória' : t.catCode === 'Код' ? 'Случайный цвет' : t.catCode === 'コード' ? 'ランダムカラー' : t.catCode === '코드' ? '랜덤 색상' : 'Random Color';
   const genPassword = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+';
     let pass = '';
     for (let i = 0; i < 16; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
     setPassword(pass);
   };
-
   const genUuid = () => {
     const newUuid = window.crypto.randomUUID ? window.crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
@@ -22,17 +24,14 @@ export function RandomGenerator({ onClose }: { onClose: () => void }) {
     });
     setUuid(newUuid);
   };
-
   const genColor = () => {
     const hex = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0').toUpperCase();
     setHexColor(hex);
   };
-
   useEffect(() => {
     genPassword();
     genUuid();
   }, []);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -45,17 +44,16 @@ export function RandomGenerator({ onClose }: { onClose: () => void }) {
               <Shuffle className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="font-bold text-xl">Random Generator</h2>
+              <h2 className="font-bold text-xl">{t.toolRandomGenerator}</h2>
               <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold" style={{ color: 'var(--gold)' }}>Security & Dev Tools</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all"><X className="w-6 h-6" /></button>
         </div>
-
         <div className="p-8 flex flex-col gap-6 overflow-y-auto">
           {/* Password Section */}
           <div className="space-y-3">
-            <label className="text-xs font-bold uppercase tracking-wider opacity-60">Secure Password</label>
+            <label className="text-xs font-bold uppercase tracking-wider opacity-60">{passwordLabel}</label>
             <div className="flex gap-2">
               <div className="flex-1 p-4 rounded-2xl font-mono text-base border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
                 {password}
@@ -64,7 +62,6 @@ export function RandomGenerator({ onClose }: { onClose: () => void }) {
               <button onClick={() => navigator.clipboard.writeText(password)} className="p-4 rounded-2xl transition-all" style={{ background: 'var(--gold)', color: 'white' }}><Copy className="w-5 h-5" /></button>
             </div>
           </div>
-
           {/* UUID Section */}
           <div className="space-y-3">
             <label className="text-xs font-bold uppercase tracking-wider opacity-60">UUID v4</label>
@@ -76,10 +73,9 @@ export function RandomGenerator({ onClose }: { onClose: () => void }) {
               <button onClick={() => navigator.clipboard.writeText(uuid)} className="p-4 rounded-2xl transition-all" style={{ background: 'var(--gold)', color: 'white' }}><Copy className="w-5 h-5" /></button>
             </div>
           </div>
-
           {/* Color Section */}
           <div className="space-y-3">
-            <label className="text-xs font-bold uppercase tracking-wider opacity-60">Random Color</label>
+            <label className="text-xs font-bold uppercase tracking-wider opacity-60">{colorLabel}</label>
             <div className="flex gap-4 items-center">
               <div className="w-20 h-20 rounded-2xl border-4 border-white shadow-lg shrink-0" style={{ backgroundColor: hexColor }} />
               <div className="flex-1 flex gap-2">

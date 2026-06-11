@@ -1,31 +1,40 @@
 'use client';
-
 import React from 'react';
 import { 
   Type, ImageIcon, Code2, FileText, Ruler, MoreHorizontal, 
-  Layers, ChevronRight, Sparkles, Music, Video // Music aur Video dono imports yahan hain
+  Layers, ChevronRight, Sparkles, Music, Video
 } from 'lucide-react';
-
+import { useLanguage } from '@/context/LanguageContext';
 const CATEGORIES = [
-  { key: 'Text',   label: 'Text',   icon: Type,           color: '#2d5a27' },
-  { key: 'Image',  label: 'Image',  icon: ImageIcon,      color: '#4a8a42' },
-  { key: 'Audio',  label: 'Audio',  icon: Music,          color: '#eab308' }, // Audio category
-  { key: 'Video',  label: 'Video',  icon: Video,          color: '#d97706' }, // Video category
-  { key: 'Code',   label: 'Code',   icon: Code2,          color: '#c9a84c' },
-  { key: 'PDF',    label: 'PDF',    icon: FileText,       color: '#8a6a2a' },
-  { key: 'Unit',   label: 'Unit',   icon: Ruler,          color: '#5a7e54' },
-  { key: 'Others', label: 'Others', icon: MoreHorizontal, color: '#7a8a76' },
+  { key: 'Text',   icon: Type,           color: '#2d5a27' },
+  { key: 'Image',  icon: ImageIcon,      color: '#4a8a42' },
+  { key: 'Audio',  icon: Music,          color: '#eab308' },
+  { key: 'Video',  icon: Video,          color: '#d97706' },
+  { key: 'Code',   icon: Code2,          color: '#c9a84c' },
+  { key: 'PDF',    icon: FileText,       color: '#8a6a2a' },
+  { key: 'Unit',   icon: Ruler,          color: '#5a7e54' },
+  { key: 'Others', icon: MoreHorizontal, color: '#7a8a76' },
 ] as const;
-
+/* Map category key → translation key */
+const CAT_LABEL_KEY: Record<string, 'catText' | 'catImage' | 'catAudio' | 'catVideo' | 'catCode' | 'catPDF' | 'catUnit' | 'catOthers'> = {
+  Text:   'catText',
+  Image:  'catImage',
+  Audio:  'catAudio',
+  Video:  'catVideo',
+  Code:   'catCode',
+  PDF:    'catPDF',
+  Unit:   'catUnit',
+  Others: 'catOthers',
+};
 interface SidebarProps {
   active: string | null;
   onSelect: (key: string | null) => void;
 }
-
 export function Sidebar({ active, onSelect }: SidebarProps) {
+  const { t } = useLanguage();
   return (
     <aside className="fixed top-0 left-0 h-screen w-[220px] z-30 flex flex-col glass border-r border-[var(--border)]">
-      {/* Logo */}
+      {/* ── Logo ─────────────────────────────────────────────── */}
       <div className="px-5 pt-6 pb-4 border-b border-[var(--border)]">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2d5a27] to-[#c9a84c] flex items-center justify-center shadow-lg">
@@ -41,9 +50,9 @@ export function Sidebar({ active, onSelect }: SidebarProps) {
           </div>
         </div>
       </div>
-
-      {/* Nav */}
+      {/* ── Nav ──────────────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
+        {/* All Tools button */}
         <button
           onClick={() => onSelect(null)}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200"
@@ -53,18 +62,19 @@ export function Sidebar({ active, onSelect }: SidebarProps) {
           }}
         >
           <Sparkles className="w-4 h-4" />
-          <span className="flex-1 text-left">All Tools</span>
+          <span className="flex-1 text-left">{t.allTools}</span>
         </button>
-
+        {/* Section label */}
         <div className="pt-3 pb-1.5 px-3">
           <p className="text-[9px] uppercase tracking-[0.2em] font-bold" style={{ color: 'var(--text-muted)' }}>
-            Categories
+            {t.language === 'زبان' || t.language === 'اللغة' ? 'الفئات' : 'Categories'}
           </p>
         </div>
-
+        {/* Category buttons */}
         {CATEGORIES.map((cat) => {
           const Icon = cat.icon;
           const isActive = active === cat.key;
+          const label = t[CAT_LABEL_KEY[cat.key]];
           return (
             <button
               key={cat.key}
@@ -84,7 +94,7 @@ export function Sidebar({ active, onSelect }: SidebarProps) {
               >
                 <Icon className="w-3.5 h-3.5" style={{ color: isActive ? '#fff' : 'var(--text-muted)' }} />
               </div>
-              <span className="flex-1 text-left">{cat.label}</span>
+              <span className="flex-1 text-left">{label}</span>
               <ChevronRight
                 className="w-3 h-3 transition-transform"
                 style={{
@@ -97,13 +107,12 @@ export function Sidebar({ active, onSelect }: SidebarProps) {
           );
         })}
       </nav>
-
-      {/* Footer */}
+      {/* ── Footer ───────────────────────────────────────────── */}
       <div className="px-4 py-4 border-t border-[var(--border)]">
         <div className="rounded-lg p-2.5" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.15)' }}>
           <p className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             <kbd className="px-1 py-0.5 rounded text-[9px] font-mono font-bold" style={{ background: 'var(--bg-secondary)', color: 'var(--gold)' }}>⌘K</kbd>
-            {' '}to search tools
+            {' '}{t.searchPlaceholder}
           </p>
         </div>
       </div>
